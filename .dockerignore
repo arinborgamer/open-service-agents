@@ -1,0 +1,7 @@
+.git
+.local
+.env*
+data
+__pycache__
+automaton*
+tests

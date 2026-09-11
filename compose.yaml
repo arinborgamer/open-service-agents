@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    ports: ["127.0.0.1:8787:8787"]
+    env_file: .local/runtime.env
+    environment:
+      OSA_OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes: ["state:/data"]
+    restart: unless-stopped
+  worker:
+    build: .
+    command: ["worker"]
+    env_file: .local/runtime.env
+    environment:
+      OSA_OLLAMA_URL: http://host.docker.internal:11434
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes: ["state:/data"]
+    restart: unless-stopped
+volumes:
+  state:

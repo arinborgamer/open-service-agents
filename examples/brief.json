@@ -1,0 +1,16 @@
+{
+  "id": "creator-content-workbook",
+  "topic": "A repeatable publishing checklist for an independent educational creator",
+  "audience": "Solo educational creators who already have an audience and publish weekly",
+  "problem": "Preparing each publication from scratch creates missed checks, unclear ownership and inconsistent follow-through.",
+  "format": "workbook",
+  "sources": [
+    {
+      "title": "Original example editorial workflow",
+      "url": "https://github.com/arinborgamer/open-service-agents/blob/main/examples/brief.json",
+      "rights": "owned",
+      "text": "This is an original fictional exercise, not market research. A useful publication checklist names the intended reader, the reader's question, the source supporting each factual claim, the person checking accuracy, the publication date, and the follow-up task. Work can be split into prepare, publish and review. A weekly retrospective compares what was planned with what actually happened. Reader feedback is a source of ideas, but does not itself prove willingness to pay. A simple worksheet can contain the columns task, owner, due date, evidence and result."
+    }
+  ],
+  "creators": []
+}

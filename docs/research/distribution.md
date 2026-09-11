@@ -1,0 +1,40 @@
+# Distribution and payments without Whop
+
+Researched 2026-09-10 against official sources. India is a provisional assumption based on workspace context, not confirmed seller residency. Provider acceptance, live account approval, bank verification, and working payouts have not been established.
+
+## Recommended split
+
+Publish the original agent code and tagged releases on GitHub. Offer optional paid hosting, installation, integration, and support separately. GitHub Releases distributes packaged software; a public repository needs an appropriate license to grant open-source reuse rights. A repository alone does not provide a customer checkout or a payout balance. [GitHub releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases), [GitHub licensing](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository).
+
+**Provisional choice:** keep billing replaceable. For an eligible Indian seller offering both implementation services and hosted agents, evaluate Razorpay first. For a software-only international SaaS offering, Lemon Squeezy is a strong alternative if the seller can complete onboarding and receive payouts. Gumroad is an accessible storefront candidate for packaged downloads or memberships, with comparatively substantial transaction fees. These are design recommendations inferred from the documented capabilities below, not confirmed account eligibility.
+
+## Comparison
+
+| Option | Best role here | Eligibility and payout constraints | Automation and material cost points |
+| --- | --- | --- | --- |
+| GitHub plus own hosting | Free source, releases, community; optional paid operation | Repository publishing requires authenticated GitHub access. Hosting and payment accounts are separate. | Tagged releases can distribute installable versions; choose a genuine open-source license. [Release docs](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases), [license docs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository). |
+| Razorpay | Indian seller collecting for approved services or subscriptions | Onboarding includes identity/business details and KYC; international collection needs activation. Indian business international bank-transfer proceeds settle in INR to bank accounts. Do not infer approval merely from being in India. [International onboarding](https://razorpay.com/docs/payments/international-payments/?preferred-country=IN). | Supports recurring cards, UPI, eMandate, subscription links and APIs. Subscription pricing currently advertises a 0.5% add-on over the underlying platform fee plus applicable GST; promotional/account pricing may differ. [Subscriptions](https://razorpay.com/subscriptions/). |
+| Lemon Squeezy | International software/SaaS checkout and subscription management | Requires store questionnaire, identity verification, and approval. India bank payouts require a pre-approved Stripe account; otherwise its docs direct Indian merchants to PayPal payouts. [Activation](https://docs.lemonsqueezy.com/help/getting-started/activate-your-store), [supported countries](https://docs.lemonsqueezy.com/help/getting-started/supported-countries). | Merchant of record for its sales; software/SaaS is allowed, but consulting, marketing, design and web-development services are prohibited. [Payments](https://docs.lemonsqueezy.com/help/payments), [product restrictions](https://docs.lemonsqueezy.com/help/getting-started/prohibited-products). |
+| Gumroad | Downloads, simple product storefront, memberships | Current payout docs list India bank payouts in INR, require matching country identity/residency or business evidence, and specify a standard $100 minimum eligible balance and a minimum seven-day hold for ordinary scheduled payouts. [Getting paid](https://gumroad.com/help/article/13-getting-paid.html). | Supports SaaS memberships and acts as merchant of record. Direct-sale help pricing is 10% + $0.50, with card processing of 2.9% + $0.30 separately stated; marketplace discovery is 30% including processing. Check the account's actual fee schedule. [Membership/tax overview](https://gumroad.com/pricing), [detailed fees](https://gumroad.com/help/article/66-gumroads-fees). |
+
+## Details that change the decision
+
+**Lemon Squeezy cannot be the default checkout for freelance implementation services.** Its policy expressly distinguishes allowed software/SaaS from prohibited services. Package descriptions must reflect what is actually delivered; labeling consulting as software does not resolve that restriction. Use a provider approved for the service offering. [Prohibited products](https://docs.lemonsqueezy.com/help/getting-started/prohibited-products).
+
+Lemon Squeezy's base fee is 5% + $0.50, with additional fees of 1.5% for international transactions, 1.5% for PayPal transactions and 0.5% for subscriptions when applicable. Non-US bank payouts carry 1%; non-US PayPal payouts carry 3%, capped at $30. Its payout documentation describes twice-monthly creation and a 13-day sales hold; PayPal must be verified and pays in USD. [Fees](https://docs.lemonsqueezy.com/help/getting-started/fees), [getting paid](https://docs.lemonsqueezy.com/help/getting-started/getting-paid).
+
+Razorpay's pricing page currently contains promotional figures and differing headline/detail rates; its FAQ says 2% + GST. Budget from the actual approved account quote, including subscription and international charges, rather than hard-coding a universal fee. [Pricing](https://razorpay.com/pricing/).
+
+Gumroad's pricing overview emphasizes 10% + $0.50, whereas its detailed fee help separately lists payment processing. Use the more detailed schedule when estimating costs and verify at onboarding. A payment balance is not immediately withdrawable income: holds, minimums, refunds, and fees apply. [Detailed fees](https://gumroad.com/help/article/66-gumroads-fees), [payout rules](https://gumroad.com/help/article/13-getting-paid.html).
+
+## Implementation requirements
+
+The recommended architecture keeps free self-hosting usable without any payment account. The operator chooses a billing provider only for the hosted offering. Customer payment, recorded revenue, provider balance, and completed bank settlement are different states; an internal ledger must not call test events or unpaid invoices earnings.
+
+For Razorpay, verify `X-Razorpay-Signature` against the exact raw body with HMAC-SHA256. Deduplicate using `x-razorpay-event-id`; account for out-of-order events. Use subscription/payment webhooks for automation and API verification when immediate confirmation is necessary. [Validation and retries](https://razorpay.com/docs/webhooks/validate-test/?locale=en-US), [webhook overview](https://razorpay.com/docs/webhooks/).
+
+For Lemon Squeezy, validate its raw-body HMAC-SHA256 against `X-Signature`. Use subscription events for hosted entitlements and preserve separate test/live configuration. [Request signing](https://docs.lemonsqueezy.com/help/webhooks/signing-requests), [activation and test/live separation](https://docs.lemonsqueezy.com/help/getting-started/activate-your-store).
+
+Gumroad's official membership documentation references its subscription API, but the public API page returned no readable schema in this research session. Treat a Gumroad webhook adapter as unverified until its live official API contract and authentication mechanism are inspected; do not assume it shares another provider's signature format. [Membership documentation](https://gumroad.com/help/article/82-membership-products), [official API entry](https://gumroad.com/api).
+
+Before live checkout can operate, the owner must supply the actual seller country, verified receiving account, approved provider account and credentials. None of this research creates a wallet, establishes a provider account, or demonstrates any revenue. Merchant-of-record handling concerns sales through that provider and does not establish the owner's personal/business tax position.

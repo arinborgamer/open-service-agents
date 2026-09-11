@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-service-agents"
+version = "0.1.0"
+description = "Evidence-led digital product, creator partnership, and fulfillment agents"
+requires-python = ">=3.11"
+license = "MIT"
+readme = "README.md"
+dependencies = []
+
+[project.optional-dependencies]
+pdf = ["reportlab>=4.4,<5"]
+research = ["youtube-transcript-api>=1.2,<2"]
+
+[project.scripts]
+osa = "open_service_agents.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["open_service_agents*"]

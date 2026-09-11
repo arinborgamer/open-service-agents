@@ -1,0 +1,77 @@
+"""Explicit mail approval, suppression, scheduling, and conservative SMTP delivery."""
+import os
+import smtplib
+import ssl
+import time
+import uuid
+from email.message import EmailMessage
+from .models import email, text
+
+
+def draft(store, recipient, subject, body, evidence, due=None):
+    recipient = email(recipient)
+    subject = text(subject, "subject", 200)
+    if "\r" in subject or "\n" in subject:
+        raise ValueError("Mail subject cannot contain line breaks.")
+    body = text(body, "body", 15000)
+    evidence = text(evidence, "contact basis", 1000)
+    mid = uuid.uuid4().hex
+    with store.connect() as db:
+        db.execute("INSERT INTO mail(id,recipient,subject,body,state,evidence,due) VALUES(?,?,?,?,?,?,?)",
+                   (mid, recipient, subject, body, "draft", evidence, due or time.time()))
+    return mid
+
+
+def approve(store, mid):
+    with store.connect() as db:
+        row = db.execute("SELECT * FROM mail WHERE id=?", (mid,)).fetchone()
+        if not row or row["state"] != "draft":
+            raise ValueError("Only an existing draft can be approved.")
+        if "[creator]" in row["body"].lower() or "[name]" in row["body"].lower():
+            raise ValueError("Replace recipient placeholders before approving.")
+        if db.execute("SELECT 1 FROM suppressions WHERE email=?", (row["recipient"],)).fetchone():
+            raise ValueError("Recipient has opted out or already replied.")
+        db.execute("UPDATE mail SET state='approved' WHERE id=?", (mid,))
+
+
+def suppress(store, recipient, reason="opt-out"):
+    recipient = email(recipient)
+    with store.connect() as db:
+        db.execute("INSERT OR REPLACE INTO suppressions VALUES(?,?)", (recipient, reason))
+        db.execute("UPDATE mail SET state='cancelled' WHERE recipient=? AND state IN ('draft','approved')", (recipient,))
+
+
+def send_one(store):
+    if os.environ.get("OSA_MAIL_ENABLED") != "true":
+        return None
+    required = ("OSA_SMTP_HOST", "OSA_SMTP_USER", "OSA_SMTP_PASSWORD", "OSA_FROM_EMAIL")
+    if any(not os.environ.get(k) for k in required):
+        raise ValueError("SMTP configuration is incomplete.")
+    sender = email(os.environ["OSA_FROM_EMAIL"])
+    with store.connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        count = db.execute("SELECT COUNT(*) FROM mail WHERE state IN ('sending','sent','uncertain') AND sent>?", (time.time() - 86400,)).fetchone()[0]
+        if count >= int(os.environ.get("OSA_MAIL_DAILY_LIMIT", "10")):
+            return None
+        row = db.execute("SELECT * FROM mail WHERE state='approved' AND due<=? AND recipient NOT IN (SELECT email FROM suppressions) ORDER BY due LIMIT 1", (time.time(),)).fetchone()
+        if not row:
+            return None
+        # A process death after this point is 'sending', never automatically retried.
+        db.execute("UPDATE mail SET state='sending',sent=? WHERE id=?", (time.time(), row["id"]))
+    message = EmailMessage()
+    message["From"] = sender
+    message["To"] = row["recipient"]
+    message["Subject"] = row["subject"]
+    message["Message-ID"] = f"<{row['id']}@{sender.split('@')[1]}>"
+    message.set_content(row["body"] + "\n\nReply to this email if you do not want further messages.")
+    try:
+        with smtplib.SMTP(os.environ["OSA_SMTP_HOST"], int(os.environ.get("OSA_SMTP_PORT", "587")), timeout=30) as client:
+            client.starttls(context=ssl.create_default_context())
+            client.login(os.environ["OSA_SMTP_USER"], os.environ["OSA_SMTP_PASSWORD"])
+            client.send_message(message)
+        state, error = "sent", None
+    except Exception:
+        state, error = "uncertain", "SMTP outcome uncertain; inspect provider before retrying manually."
+    with store.connect() as db:
+        db.execute("UPDATE mail SET state=?,error=? WHERE id=?", (state, error, row["id"]))
+    return {"id": row["id"], "state": state}
