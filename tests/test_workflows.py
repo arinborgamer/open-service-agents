@@ -117,6 +117,20 @@ class Workflows(unittest.TestCase):
         with self.assertRaises(ValueError): models.identifier("../../wallet")
         with self.assertRaises(ValueError): models.brief({**self.brief, "sources": []})
 
+    def test_explicit_retry_only_failed_jobs_preserves_checkpoints(self):
+        jid = self.store.enqueue(self.brief, "demo")
+        with self.assertRaises(ValueError): self.store.retry(jid)
+        claimed = self.store.claim()
+        self.store.save_artifact(claimed, "opportunity", {"title": "Saved", "body": "Original", "citations": ["S1"]})
+        with self.assertRaises(ValueError): self.store.retry(jid)
+        with self.store.connect() as db:
+            db.execute("UPDATE jobs SET state='failed',attempts=3 WHERE id=?", (jid,))
+        self.store.retry(jid)
+        self.assertEqual(self.store.job(jid)["attempts"], 0)
+        run_one(self.store)
+        self.assertEqual(self.store.job(jid)["artifacts"]["opportunity"]["title"], "Saved")
+        with self.assertRaises(ValueError): self.store.retry(jid)
+
     def test_payment_delivery_idempotence_and_gross_share(self):
         order = self.order()
         signed = payments.token(order["id"])
@@ -187,7 +201,21 @@ class Workflows(unittest.TestCase):
 
     def test_ollama_truncation_never_becomes_success(self):
         with patch("open_service_agents.providers.request_json", return_value={"done_reason": "length", "message": {"content": "{}"}}):
-            with self.assertRaises(ValueError): Ollama().generate("a", "b", {})
+            with self.assertRaises(ValueError): Ollama().generate("a", "b", {"brief": self.brief})
+
+    def test_ollama_schema_requires_citations_from_supplied_sources(self):
+        response = {"done_reason": "stop", "message": {"content": json.dumps({
+            "title": "Section", "body": "Original draft", "citations": ["S1"]})}}
+        with patch("open_service_agents.providers.request_json", return_value=response) as request:
+            Ollama().generate("chapter_1", "Write section", {"brief": self.brief})
+        schema = request.call_args.args[1]["format"]
+        self.assertIsInstance(schema, dict)
+        self.assertIn("citations", schema["required"])
+        self.assertEqual(schema["properties"]["citations"]["items"]["enum"], ["S1"])
+        self.assertEqual(schema["properties"]["citations"]["minItems"], 1)
+        # A captured real response omitted citations. Never fill them in silently.
+        with self.assertRaises(ValueError):
+            models.artifact({"title": "Section", "body": "Original draft"}, {"S1"})
 
     def test_http_auth_and_async_submit(self):
         server = make_server(self.store, port=0)

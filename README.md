@@ -59,7 +59,7 @@ osa submit examples/brief.json --provider ollama --key first-real-draft
 osa worker
 ```
 
-The default adapter uses Ollama's native `/api/chat`, JSON output, an explicit 8k context and 1,600 output tokens per stage. There is no fragile generated tool-call parser. Set `OSA_MODEL` and `OSA_OLLAMA_URL` in `.local/runtime.env` to choose another installed model. Small models may need shorter briefs or a stronger replacement. A failed real call is never silently converted to a demo success.
+The default adapter uses Ollama's native `/api/chat`, schema-constrained JSON output, an explicit 8k context and 1,600 output tokens per stage. The schema requires citations from supplied source IDs; this checks structure, not whether every claim is supported. There is no generated tool-call parser. Set `OSA_MODEL` and `OSA_OLLAMA_URL` in `.local/runtime.env` to choose another installed model. Small models may need shorter briefs or a stronger replacement. A failed real call is never silently converted to a demo success.
 
 Create your own brief using `examples/brief.json`. Supply actual source excerpts/notes and URLs, a topic, audience and problem, and optional creator records. URLs are citation metadata, not silently scraped pages. Use owned/licensed/permissioned content when adapting a creator's material. Public references support original paraphrasing, not republishing their text.
 

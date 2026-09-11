@@ -34,6 +34,8 @@ def main():
     sub.add_parser("jobs")
     inspect = sub.add_parser("show")
     inspect.add_argument("id")
+    retry = sub.add_parser("retry", help="Explicitly retry a failed job, retaining completed stages.")
+    retry.add_argument("id")
     export = sub.add_parser("export")
     export.add_argument("id")
     export.add_argument("--out", default=".local/exports")
@@ -110,6 +112,8 @@ def main():
             output(store.jobs())
         elif args.command == "show":
             output(store.job(args.id))
+        elif args.command == "retry":
+            output({"id": store.retry(args.id), "state": "queued"})
         elif args.command == "export":
             output({"directory": export_job(store, args.id, args.out)})
         elif args.command == "pdf":

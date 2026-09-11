@@ -108,3 +108,12 @@ class Store:
     def jobs(self):
         with self.connect() as db:
             return [dict(r) for r in db.execute("SELECT id,provider,state,attempts,error,created FROM jobs ORDER BY created DESC LIMIT 100")]
+
+    def retry(self, job_id):
+        """Explicit operator recovery after fixing inputs/configuration; retain checkpoints."""
+        with self.connect() as db:
+            changed = db.execute("UPDATE jobs SET state='queued',attempts=0,error=NULL,available=?,lease_until=NULL,lease_token=NULL WHERE id=? AND state='failed'",
+                                 (time.time(), job_id)).rowcount
+            if changed != 1:
+                raise ValueError("Only a failed job can be explicitly retried.")
+        return job_id
