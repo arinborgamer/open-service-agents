@@ -2,7 +2,9 @@
 
 Original, open-source agents for researching a digital product, creating a draft, preparing creator partnerships, and fulfilling paid orders. Python 3.11+, SQLite, optional local Ollama. No Whop account required.
 
-**Status: v0.1 engineering preview.** Runs locally and has executable payment/delivery and job-recovery tests. It is not a turnkey income system. Live payment, email, and hosted deployment require your own approved accounts and configuration. Model-written drafts require editorial review. Test/demo transactions are always separated from actual receipts.
+**Status: v0.2 engineering preview.** Includes a working local dashboard, research and creator discovery, editable product drafts, campaign review and inbox sync, a product-page builder, checkout/delivery, analytics and explicitly approved partner-transfer submission. It is not a turnkey income system. Live payment, email, search and public hosting require your own accounts and verification. Model-written drafts require editorial review. Test/demo transactions are separated from actual receipts.
+
+Start the service and open **http://127.0.0.1:8787/studio**. Unlock it using your private `OSA_API_TOKEN`. Read the [v0.2 workflow and setup guide](docs/V0.2.md) for the connected interface, account requirements and remaining limitations.
 
 ## What it does
 
@@ -11,18 +13,19 @@ Original, open-source agents for researching a digital product, creating a draft
 | Opportunity agent | Suggests three evidence-linked product directions and a validation experiment |
 | Creator analyst | Analyzes supplied creator notes/content; produces sourcing criteria if none are supplied |
 | Product planner | Before/after outcome, outline, reader exercises |
-| Product writer | Three checkpointed sections; ebook/workbook or written course/coaching draft |
+| Product writer | 3-12 checkpointed chapters; ebook/workbook or written course/coaching draft; revision history and approval locks |
 | Brand agent | Original name, voice and visual direction |
 | Storefront copy agent | Offer copy, FAQs and pricing hypotheses |
 | Partnership agent | Two email variants per supplied creator, proposed partnership discussion |
 | Launch agent | Funnel brief, ten-story sequence, feedback and measurement plan |
 | Independent adviser | Answers a question using a supplied evidence brief; does not impersonate anyone |
-| Research discovery | Optional Brave search adapter; labels results as snippets, not full-page research |
+| Research discovery | Brave search, bounded robots-aware website imports and optional public English caption imports; evidence type and truncation labels |
 | Exports | Markdown, readable HTML, product ZIP, funnel graph/brief ZIP; optional PDF |
 | Automation | Persistent worker, bounded retries, per-stage checkpoints, authenticated local API |
-| Outreach | Draft/approve/schedule SMTP messages; reply and opt-out suppression; daily limit |
+| Outreach | Qualified creator shortlist, A/B draft campaigns, per-message review, SMTP scheduling, read-only correlated IMAP replies and directional metrics |
 | Payments | Razorpay Payment Links, raw-body HMAC verification, amount/currency matching, deduplication |
-| Delivery/accounting | Signed expiring downloads; automatic live receipt email queue; refund/dispute revocation; gross partner-share ledger |
+| Delivery/accounting | Signed downloads; automatic live delivery email queue; refund/dispute revocation; gross shares and separately approved Route transfer submission |
+| Store builder | Edit/reorder sections; preview and publish offer/sample/confirmation pages; public checkout; aggregate page/order counts |
 
 ## Quick start: no account or API key needed
 
@@ -61,7 +64,7 @@ osa worker
 
 The default adapter uses Ollama's native `/api/chat`, schema-constrained JSON output, an explicit 8k context and 1,600 output tokens per stage. The schema requires citations from supplied source IDs; this checks structure, not whether every claim is supported. There is no generated tool-call parser. Set `OSA_MODEL` and `OSA_OLLAMA_URL` in `.local/runtime.env` to choose another installed model. Small models may need shorter briefs or a stronger replacement. A failed real call is never silently converted to a demo success.
 
-Create your own brief using `examples/brief.json`. Supply actual source excerpts/notes and URLs, a topic, audience and problem, and optional creator records. URLs are citation metadata, not silently scraped pages. Use owned/licensed/permissioned content when adapting a creator's material. Public references support original paraphrasing, not republishing their text.
+Create your own brief using `examples/brief.json`. Supply actual source excerpts/notes and URLs, a topic, audience and problem, optional creator records and `chapter_count` from 3 to 12. Brief URLs are citation metadata, not silently scraped pages; the dashboard's explicit import action fetches bounded permitted excerpts. Use owned/licensed/permissioned content when adapting a creator's material. Public references support original paraphrasing, not republishing their text.
 
 `osa discover "your niche query"` uses your `BRAVE_API_KEY` and returns labeled search snippets to review and incorporate into a brief. It does not buy a lead list, scrape Instagram, or invent customer emails. `osa ask examples/brief.json "What evidence should I collect before pricing this?"` runs the independent adviser.
 
@@ -73,7 +76,7 @@ python -m pip install -e .[pdf]
 osa pdf JOB_ID --out .local/output/pdf/my-product.pdf
 ```
 
-Operator exports include all generated drafts and `funnel-brief.zip`. The customer ZIP contains only the product's Markdown/HTML editions and references; it excludes the original brief, creator records and outreach drafts. Optional PDF export is an operator deliverable and is not automatically added to checkout downloads in v0.1. The funnel ZIP is a graph, copy and build prompt—not a deployed multi-page website. Three sections are the initial bounded format, not a claim to recreate a 45-page proprietary ebook generator.
+Operator exports include all generated drafts and the legacy `funnel-brief.zip` planning bundle. Customer ZIPs contain the product's Markdown/HTML editions and references, excluding original brief records and outreach drafts. Optional PDF remains a separate operator export. The v0.2 dashboard additionally builds working server-backed offer/sample/confirmation pages and exports static page previews. Three to twelve chapters are supported; no particular page count or editorial quality is guaranteed.
 
 ## Checkout and automated delivery without Whop
 
@@ -94,7 +97,7 @@ Configure Razorpay's webhook at `https://YOUR-HOST/webhooks/razorpay` with the s
 
 After a verified live payment, a delivery email is queued automatically. Enable SMTP delivery to send it. Download URLs expire after seven days and stop working after refunds/disputes. Any refund currently suspends the whole entitlement pending manual reconciliation. An operator can issue a fresh link with `delivery-link` for an eligible order.
 
-The ledger records gross receipts and accrued partner shares in minor currency units. **It is not a wallet, net profit, bank settlement or automatic partner payout.** Fees, taxes, partial refunds, disputes and payout reconciliation still need provider records. Automatic split payouts require a separately approved marketplace/payout integration, not just an internal percentage.
+The ledger records gross receipts and accrued partner shares in minor currency units. **It is not a wallet, net profit or bank settlement.** v0.2 can submit an explicitly approved INR share to a verified Razorpay Linked Account when Route and live/test enable flags are configured. Submitted does not mean settled; refunds, reversals, fees, taxes and payout reconciliation still require provider records. See [transfer safeguards](docs/V0.2.md#partner-transfers-are-not-a-wallet).
 
 ## Creator outreach
 
@@ -104,15 +107,15 @@ Review the generated `outreach.md`, personalize a message, and save its body in 
 osa draft-mail creator@example.com "A resource idea for your audience" .local/message.txt --basis "Creator requested a sample"
 osa mail-queue
 osa approve-mail MAIL_ID
-osa worker
+osa mail-worker
 osa record-reply creator@example.com --status interested
 ```
 
-`--delay-hours 48` schedules a follow-up draft. Set SMTP variables and `OSA_MAIL_ENABLED=true` to deliver approved messages. No existing email account is accessed automatically. Replies are recorded manually in v0.1; every recorded reply stops outstanding follow-ups. SMTP failures with uncertain delivery are not automatically retried. Confirm the actual sender identity, recipient suitability and any required contact details for your campaign. Reply-rate optimization and automatic inbox synchronization are not implemented.
+`--delay-hours 48` schedules an individual draft. The dashboard campaign flow creates paired initial/follow-up drafts and prevents campaign follow-ups before the initial message is sent. Set SMTP variables and `OSA_MAIL_ENABLED=true` to deliver reviewed messages. Optional IMAP synchronization requires your explicitly configured mailbox and imports only correlated replies. Every recorded reply stops outstanding outreach follow-ups, not paid product delivery. SMTP failures with uncertain delivery are not automatically retried. Confirm sender identity, recipient suitability and required contact details. Variant metrics are directional; campaigns are never silently rewritten or optimized.
 
 ## Automation and deployment
 
-Windows: run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1`. This starts a hidden supervisor for the API and worker. `scripts/install-autostart.ps1` registers the supervisor at your next sign-in. Use `scripts/stop-local.ps1` to stop these processes. Local runtime records/logs live under ignored `.local/`. The computer must remain awake.
+Windows: run `pwsh -NoProfile -File scripts/start-local.ps1 -Python .venv/Scripts/python.exe`. This starts hidden API, generation and mail workers. `scripts/install-autostart.ps1 -Python .venv/Scripts/python.exe` registers the supervisor at your next sign-in. Use `scripts/stop-local.ps1` to stop these processes. Runtime records/logs live under ignored `.local/`. The computer must remain awake, and Ollama must be running separately.
 
 Linux/container:
 
@@ -122,7 +125,7 @@ docker compose up --build -d
 docker compose logs --tail=50
 ```
 
-The container port binds to loopback. Add a TLS reverse proxy and rate limits before exposing webhook/download endpoints. Forward administrative API routes only to authorized operators. Do not expose Ollama publicly. The built-in HTTP server is an initial small single-operator deployment, not a hardened multi-tenant SaaS. Docker files are provided; consult [deployment notes](docs/LIVE-SETUP.md) for validation status and constraints.
+The development container port binds to loopback. A separate `compose.production.yaml` and `Caddyfile` provide a TLS-hosting template; they still require a server, domain, reachable model endpoint and private account configuration. Restrict administrative access and add edge rate limits. Do not expose Ollama publicly. The built-in HTTP server remains a small single-operator engineering preview, not a hardened multi-tenant SaaS. Docker deployment has not been validated on this workstation. See [hosting instructions](docs/V0.2.md#public-hosting).
 
 ## Privacy and open source
 

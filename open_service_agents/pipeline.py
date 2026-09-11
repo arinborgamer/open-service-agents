@@ -17,6 +17,18 @@ STAGES = {
 }
 
 
+def stages(brief):
+    count = brief.get('chapter_count', 3)
+    if count == 3:
+        return STAGES
+    result = {k: STAGES[k] for k in ('opportunity', 'creator')}
+    result['transformation'] = STAGES['transformation'].replace('THREE-section', f'{count}-section')
+    for i in range(1, count + 1):
+        result[f'chapter_{i}'] = f'Write section {i} of {count}, following its position in the selected outline. Include a concrete worked example, an actionable worksheet, and supplied-source citations. Avoid repeating earlier sections. ' + ('Finish with review and limitations.' if i == count else '')
+    result.update({k: STAGES[k] for k in ('brand', 'storefront', 'outreach', 'launch')})
+    return result
+
+
 def run_one(store):
     job = store.claim()
     if not job:
@@ -25,12 +37,13 @@ def run_one(store):
         model = provider(job["provider"])
         b = json.loads(job["brief"])
         completed = store.job(job["id"])["artifacts"]
-        for stage, instruction in STAGES.items():
+        for stage, instruction in stages(b).items():
             if stage in completed:
                 continue
             # Keep bounded context; output is checkpointed per stage and reviewed before sale.
-            context = {"brief": b, "previous": {k: {"title": v["title"], "body": v["body"][:1400]}
-                for k, v in completed.items() if k in ("opportunity", "creator", "transformation")}}
+            context = {"brief": b, "previous": {k: {"title": v["title"], "body": v["body"][:6000 if k=='transformation' else 500]}
+                for k, v in completed.items() if k in ("opportunity", "creator", "transformation")},
+                'completed_section_titles': {k:v['title'] for k,v in completed.items() if k.startswith('chapter_')}}
             response = artifact(model.generate(stage, instruction, context), {s["id"] for s in b["sources"]})
             response.update({"provider": model.name, "model": model.model, "stage": stage})
             store.save_artifact(job, stage, response)

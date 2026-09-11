@@ -37,7 +37,40 @@ class Store:
                 CREATE TABLE IF NOT EXISTS mail (
                     id TEXT PRIMARY KEY, recipient TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL,
                     state TEXT NOT NULL, evidence TEXT NOT NULL, due REAL NOT NULL, sent REAL, error TEXT);
+                CREATE TABLE IF NOT EXISTS leads(id TEXT PRIMARY KEY,profile_url TEXT UNIQUE,content TEXT NOT NULL,updated REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS research(id TEXT PRIMARY KEY,content TEXT NOT NULL,created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS campaigns(id TEXT PRIMARY KEY,name TEXT NOT NULL,created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS campaign_mail(mail_id TEXT PRIMARY KEY,campaign_id TEXT NOT NULL,variant TEXT NOT NULL,lead_id TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS mail_headers(mail_id TEXT PRIMARY KEY,message_id TEXT UNIQUE NOT NULL);
+                CREATE TABLE IF NOT EXISTS replies(id TEXT PRIMARY KEY,mail_id TEXT NOT NULL,sender TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,status TEXT NOT NULL,created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS imap_seen(account TEXT NOT NULL,validity TEXT NOT NULL,uid TEXT NOT NULL,PRIMARY KEY(account,validity,uid));
+                CREATE TABLE IF NOT EXISTS imap_cursor(account TEXT PRIMARY KEY,validity TEXT NOT NULL,uid INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS storefronts(product_id TEXT PRIMARY KEY,content TEXT NOT NULL,published INTEGER NOT NULL,updated REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS visits(product_id TEXT NOT NULL,day TEXT NOT NULL,page TEXT NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(product_id,day,page));
+                CREATE TABLE IF NOT EXISTS checkout_requests(nonce TEXT PRIMARY KEY,product_id TEXT NOT NULL,email TEXT NOT NULL,order_id TEXT,state TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS advisor(id TEXT PRIMARY KEY,job_id TEXT NOT NULL,question TEXT NOT NULL,answer TEXT NOT NULL,created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS edits(id TEXT PRIMARY KEY,job_id TEXT NOT NULL,stage TEXT NOT NULL,previous TEXT NOT NULL,created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS transfers(id TEXT PRIMARY KEY,payment_id TEXT UNIQUE NOT NULL,account TEXT NOT NULL,amount INTEGER NOT NULL,currency TEXT NOT NULL,mode TEXT NOT NULL,state TEXT NOT NULL,provider_id TEXT,created REAL NOT NULL,error TEXT);
+                CREATE INDEX IF NOT EXISTS idx_mail_state_due ON mail(state,due);
+                CREATE INDEX IF NOT EXISTS idx_orders_product_state ON orders(product_id,state);
+                CREATE INDEX IF NOT EXISTS idx_replies_mail_id ON replies(mail_id);
             ''')
+
+    def edit_artifact(self, job_id, stage, content):
+        from .models import artifact
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            job = db.execute('SELECT * FROM jobs WHERE id=?', (job_id,)).fetchone()
+            old = db.execute('SELECT content FROM artifacts WHERE job_id=? AND stage=?', (job_id, stage)).fetchone()
+            if not job or job['state'] != 'ready' or not old:
+                raise ValueError('Only a completed draft stage can be edited.')
+            if db.execute('SELECT 1 FROM products WHERE job_id=?', (job_id,)).fetchone():
+                raise ValueError('An approved product is immutable. Create a revised product before editing.')
+            clean = artifact(content, {s['id'] for s in json.loads(job['brief'])['sources']})
+            clean['edited_by'] = 'operator'
+            db.execute('INSERT INTO edits VALUES(?,?,?,?,?)', (uuid.uuid4().hex, job_id, stage, old['content'], time.time()))
+            db.execute('UPDATE artifacts SET content=? WHERE job_id=? AND stage=?', (json.dumps(clean), job_id, stage))
+        return clean
 
     @contextmanager
     def connect(self):

@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import subprocess
+import tomllib
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -54,8 +55,9 @@ def main():
                         "private": False, "has_issues": True, "has_wiki": False, "has_projects": False, "auto_init": False})
             print(json.dumps({"url": result["html_url"], "created": True}))
     elif args.action == "release":
-        result = api(f"/repos/{OWNER}/{REPO}/releases", {"tag_name": "v0.1.0", "target_commitish": "main", "name": "v0.1.0 - engineering preview", "prerelease": True,
-            "body": "Initial independent implementation of ten checkpointed digital-product stages, local Ollama, creator outreach drafts, portable exports, Razorpay fulfillment, signed downloads and gross-share accounting. Includes four-video evidence notes, privacy guidance, CI and setup scripts.\n\nEngineering preview: real merchant accounts, email, payout reconciliation and public hosting require operator setup. Demo fixtures are not AI-generated products or earnings. See README for tested behavior and explicit limits."})
+        version = tomllib.loads((Path(__file__).resolve().parents[1] / 'pyproject.toml').read_text())['project']['version']
+        result = api(f"/repos/{OWNER}/{REPO}/releases", {"tag_name": "v" + version, "target_commitish": "main", "name": "v" + version + " - engineering preview", "prerelease": True,
+            "body": "Adds a local operator dashboard, 3-12 chapter drafting, revision history, source/caption imports, Brave/YouTube discovery adapters, reviewed creator shortlist, A/B campaigns, correlated IMAP replies, an editable product-page builder, public checkout routes, aggregate analytics and explicitly approved Razorpay Route transfer submission. Includes regression tests and a TLS deployment template.\n\nNot a turnkey income system. Merchant approval, search/mail credentials, live provider verification, public hosting, transfer reconciliation and editorial review remain owner responsibilities. No customers contacted or earnings claimed. See docs/V0.2.md and docs/VALIDATION.md."})
         print(json.dumps({"release": result["html_url"]}))
     elif args.action == "status":
         result = api(f"/repos/{OWNER}/{REPO}/actions/runs?per_page=5")

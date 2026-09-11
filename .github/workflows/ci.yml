@@ -16,5 +16,6 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m unittest discover -s tests -v
       - run: python -m compileall -q open_service_agents
+      - run: node --check open_service_agents/web/app.js
       - run: python -m pip install --no-deps .
       - run: osa --help

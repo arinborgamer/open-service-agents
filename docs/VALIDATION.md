@@ -2,6 +2,20 @@
 
 Engineering-preview checks performed on 2026-09-11:
 
+## v0.2 checks
+
+- Windows, Python 3.11: 41 automated tests passed, including repeated refunds and refunded-payment events cancelling or flagging partner transfers. JavaScript syntax and Python compilation checks passed.
+- The 0.2.0 wheel built successfully and includes all three dashboard assets, with no test tools or private runtime files. The isolated local installation reports version 0.2.0.
+- The API, generation worker and mail worker were restarted under the hidden Windows supervisor, and the existing sign-in task was updated to use the project virtual environment. The dashboard rendered after restart. Mail, merchant checkout and transfers remain unconfigured/disabled.
+- The original real Ollama job finished all ten stages successfully after the citation-schema fix.
+- A real authenticated dashboard adviser request completed against local Ollama after restarting its service, saving a 1,953-character answer with a supplied-source citation. This verifies generation and persistence, not factual accuracy or commercial performance. Ollama must remain running separately.
+- New regression coverage includes 12-chapter exports, revision/approval locks, public-network guards, robots exclusions, explicit redirect handling, source extraction, mocked YouTube discovery, qualified A/B drafts, IMAP reply correlation and UID resumption, follow-up prerequisites, escaped storefronts, private previews, checkout replay protection and transfer approval/uncertain outcomes.
+- Browser checks used an isolated fictional-data server with outbound mail and payment credentials disabled. Verified unlock, page-section reordering and preview, campaign creation as drafts, and the agent-facing read-only job tool (valid and invalid input). Mobile testing at 390px showed no document-width overflow. No live customer records were used.
+- A live permitted import of Python.org's documentation page returned a 1,709-character excerpt, with no truncation.
+- No Brave/YouTube key, real mailbox, merchant or Linked Account was configured. Their adapters have contract/fixture coverage only. Docker/Caddy configuration is provided but not deployment-tested; Docker is unavailable on this workstation.
+
+## v0.1 baseline
+
 - Windows, Python 3.11: 21 automated tests passed, including durable jobs, explicit failed-job recovery, stale-worker protection, authentication, payment event validation, duplicate handling, refund revocation, signed downloads and outreach suppression.
 - Python compilation and a wheel build/install succeeded. Core runtime has no third-party dependencies.
 - The ten-stage offline fixture completed. Operator and customer ZIP exports were checked separately.

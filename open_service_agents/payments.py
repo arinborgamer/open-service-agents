@@ -128,6 +128,7 @@ def webhook(store, raw, signature, event_id, mode=None):
             if revoked or order["state"] == "refunded":
                 db.execute("UPDATE orders SET state='refunded',payment_id=? WHERE id=?", (payment["id"], order["id"]))
                 db.execute("DELETE FROM ledger WHERE payment_id=?", (payment["id"],))
+                db.execute("UPDATE transfers SET state=CASE WHEN state IN ('draft','approved','cancelled') THEN 'cancelled' ELSE 'needs-reconciliation' END,error='Refund/dispute: inspect provider and reverse transfer if needed' WHERE payment_id=? AND mode=?", (payment["id"], mode))
             else:
                 db.execute("UPDATE orders SET state='paid',payment_id=? WHERE id=?", (payment["id"], order["id"]))
                 db.execute("INSERT OR IGNORE INTO ledger VALUES(?,?,?,?,?,?)", (payment["id"], order["id"], order["amount"], order["amount"] * order["partner_bps"] // 10000, order["currency"], mode))
@@ -149,6 +150,7 @@ def webhook(store, raw, signature, event_id, mode=None):
             # Conservative: any refund/dispute suspends download and accrued share for manual reconciliation.
             db.execute("UPDATE orders SET state='refunded' WHERE payment_id=? AND mode=?", (payment_id, mode))
             db.execute("DELETE FROM ledger WHERE payment_id=? AND mode=?", (payment_id, mode))
+            db.execute("UPDATE transfers SET state=CASE WHEN state IN ('draft','approved','cancelled') THEN 'cancelled' ELSE 'needs-reconciliation' END,error='Refund/dispute: inspect provider and reverse transfer if needed' WHERE payment_id=? AND mode=?", (payment_id,mode))
         db.execute("INSERT INTO events VALUES(?,?)", (mode + ":" + event_id, time.time()))
     return {"status": "processed"}
 

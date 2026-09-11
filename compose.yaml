@@ -17,5 +17,11 @@ services:
     extra_hosts: ["host.docker.internal:host-gateway"]
     volumes: ["state:/data"]
     restart: unless-stopped
+  mail:
+    build: .
+    command: ["mail-worker"]
+    env_file: .local/runtime.env
+    volumes: ["state:/data"]
+    restart: unless-stopped
 volumes:
   state:

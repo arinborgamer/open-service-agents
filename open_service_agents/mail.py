@@ -38,7 +38,7 @@ def suppress(store, recipient, reason="opt-out"):
     recipient = email(recipient)
     with store.connect() as db:
         db.execute("INSERT OR REPLACE INTO suppressions VALUES(?,?)", (recipient, reason))
-        db.execute("UPDATE mail SET state='cancelled' WHERE recipient=? AND state IN ('draft','approved')", (recipient,))
+        db.execute("UPDATE mail SET state='cancelled' WHERE recipient=? AND state IN ('draft','approved') AND id NOT LIKE 'delivery_%'", (recipient,))
 
 
 def send_one(store):
@@ -53,7 +53,13 @@ def send_one(store):
         count = db.execute("SELECT COUNT(*) FROM mail WHERE state IN ('sending','sent','uncertain') AND sent>?", (time.time() - 86400,)).fetchone()[0]
         if count >= int(os.environ.get("OSA_MAIL_DAILY_LIMIT", "10")):
             return None
-        row = db.execute("SELECT * FROM mail WHERE state='approved' AND due<=? AND recipient NOT IN (SELECT email FROM suppressions) ORDER BY due LIMIT 1", (time.time(),)).fetchone()
+        row = db.execute("""SELECT m.* FROM mail m WHERE state='approved' AND due<=?
+            AND (id LIKE 'delivery_%' OR recipient NOT IN (SELECT email FROM suppressions))
+            AND NOT EXISTS (SELECT 1 FROM campaign_mail follow WHERE follow.mail_id=m.id AND follow.variant LIKE '%-followup'
+                AND NOT EXISTS (SELECT 1 FROM campaign_mail first JOIN mail initial ON initial.id=first.mail_id
+                    WHERE first.campaign_id=follow.campaign_id AND first.lead_id=follow.lead_id
+                    AND first.variant IN ('A','B') AND initial.state='sent'))
+            ORDER BY due LIMIT 1""", (time.time(),)).fetchone()
         if not row:
             return None
         # A process death after this point is 'sending', never automatically retried.
@@ -63,6 +69,8 @@ def send_one(store):
     message["To"] = row["recipient"]
     message["Subject"] = row["subject"]
     message["Message-ID"] = f"<{row['id']}@{sender.split('@')[1]}>"
+    with store.connect() as db:
+        db.execute('INSERT OR REPLACE INTO mail_headers VALUES(?,?)', (row['id'], message['Message-ID']))
     message.set_content(row["body"] + "\n\nReply to this email if you do not want further messages.")
     try:
         with smtplib.SMTP(os.environ["OSA_SMTP_HOST"], int(os.environ.get("OSA_SMTP_PORT", "587")), timeout=30) as client:

@@ -3,7 +3,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 $task = Get-ScheduledTask -TaskName 'OpenServiceAgents-Local' -ErrorAction SilentlyContinue
 if ($task) { Stop-ScheduledTask -TaskName $task.TaskName }
 # Verify command lines and executable names before acting on persisted PIDs.
-foreach ($service in @('supervisor', 'serve', 'worker')) {
+foreach ($service in @('supervisor', 'serve', 'worker', 'mail-worker')) {
     $pidPath = "$repo\.local\$service.pid"
     if (Test-Path -LiteralPath $pidPath) {
         $recordedId = [int](Get-Content -LiteralPath $pidPath)

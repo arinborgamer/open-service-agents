@@ -1,0 +1,39 @@
+# Requires a real domain, DNS pointing at this host, and private configuration.
+services:
+  api:
+    build: .
+    env_file: .local/runtime.env
+    volumes: ["state:/data"]
+    restart: unless-stopped
+    networks: [internal]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  worker:
+    build: .
+    command: ["worker"]
+    env_file: .local/runtime.env
+    volumes: ["state:/data"]
+    restart: unless-stopped
+    networks: [internal]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  mail:
+    build: .
+    command: ["mail-worker"]
+    env_file: .local/runtime.env
+    volumes: ["state:/data"]
+    restart: unless-stopped
+    networks: [internal]
+  proxy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    environment:
+      OSA_PUBLIC_HOST: ${OSA_PUBLIC_HOST:?Set OSA_PUBLIC_HOST to your domain}
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy_data:/data", "caddy_config:/config"]
+    depends_on: [api]
+    restart: unless-stopped
+    networks: [internal]
+networks:
+  internal:
+volumes:
+  state:
+  caddy_data:
+  caddy_config:

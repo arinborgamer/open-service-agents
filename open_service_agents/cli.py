@@ -31,6 +31,10 @@ def main():
     worker = sub.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     worker.add_argument("--interval", type=float, default=5)
+    inbox_worker = sub.add_parser('mail-worker', help='Independently sync correlated replies and send approved mail.')
+    inbox_worker.add_argument('--once', action='store_true')
+    inbox_worker.add_argument('--interval', type=float, default=60)
+    sub.add_parser('sync-inbox')
     sub.add_parser("jobs")
     inspect = sub.add_parser("show")
     inspect.add_argument("id")
@@ -98,7 +102,7 @@ def main():
             while True:
                 try:
                     jid = run_one(store)
-                    sent = mail.send_one(store)
+                    sent = None  # Independent mail-worker keeps replies responsive during long model jobs.
                     if jid or sent or args.once:
                         output({"completed_job": jid, "mail": sent})
                 except Exception as exc:
@@ -108,6 +112,22 @@ def main():
                 if args.once:
                     break
                 time.sleep(max(1, args.interval))
+        elif args.command in ('mail-worker', 'sync-inbox'):
+            from .campaigns import sync_inbox
+            from .transfers import send_one as send_transfer
+            while True:
+                try:
+                    result = sync_inbox(store)
+                    sent = mail.send_one(store) if args.command == 'mail-worker' else None
+                    transfer = send_transfer(store) if args.command == 'mail-worker' else None
+                    output({'inbox':result, 'mail':sent,'transfer':transfer})
+                except Exception as exc:
+                    output({'error':type(exc).__name__, 'detail':'Mailbox cycle failed; sending skipped. Check private configuration.'})
+                    if args.command == 'sync-inbox' or args.once:
+                        raise SystemExit(1)
+                if args.command == 'sync-inbox' or args.once:
+                    break
+                time.sleep(max(10, args.interval))
         elif args.command == "jobs":
             output(store.jobs())
         elif args.command == "show":

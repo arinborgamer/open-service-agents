@@ -9,13 +9,13 @@ if (-not $created) { $mutex.Dispose(); exit 0 }
 Set-Content -LiteralPath "$repo\.local\supervisor.pid" -Value $PID
 $children = @{}
 try {
-    foreach ($service in @('serve', 'worker')) {
+    foreach ($service in @('serve', 'worker', 'mail-worker')) {
         $children[$service] = $null
     }
     while ($true) {
-        foreach ($service in @('serve', 'worker')) {
+        foreach ($service in @('serve', 'worker', 'mail-worker')) {
             if (-not $children[$service] -or $children[$service].HasExited) {
-                $children[$service] = Start-Process -FilePath $Python -ArgumentList @('-m', 'open_service_agents', '--data', "`"$repo\.local\data`"", '--env-file', "`"$repo\.local\runtime.env`"", $service) -WorkingDirectory $repo -WindowStyle Hidden -PassThru -RedirectStandardOutput "$repo\.local\$service.log" -RedirectStandardError "$repo\.local\$service.error.log"
+                $children[$service] = Start-Process -FilePath $Python -ArgumentList @('-u', '-m', 'open_service_agents', '--data', "`"$repo\.local\data`"", '--env-file', "`"$repo\.local\runtime.env`"", $service) -WorkingDirectory $repo -WindowStyle Hidden -PassThru -RedirectStandardOutput "$repo\.local\$service.log" -RedirectStandardError "$repo\.local\$service.error.log"
                 Set-Content -LiteralPath "$repo\.local\$service.pid" -Value $children[$service].Id
             }
         }

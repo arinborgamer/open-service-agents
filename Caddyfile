@@ -1,0 +1,12 @@
+{$OSA_PUBLIC_HOST} {
+    # Automatic TLS; no access logs because download paths contain bearer capabilities.
+    request_body {
+        max_size 250KB
+    }
+    header {
+        Referrer-Policy no-referrer
+        X-Content-Type-Options nosniff
+        Strict-Transport-Security "max-age=31536000"
+    }
+    reverse_proxy api:8787
+}

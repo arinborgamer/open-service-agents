@@ -1,5 +1,6 @@
 """Validate small explicit inputs before any network request or model invocation."""
 import re
+import json
 from urllib.parse import urlparse
 
 
@@ -30,6 +31,10 @@ def brief(data):
              "format": data.get("format", "ebook"), "sources": [], "creators": []}
     if clean["format"] not in ("ebook", "workbook", "course", "coaching"):
         raise ValueError("Format must be ebook, workbook, course, or coaching.")
+    count = data.get('chapter_count', 3)
+    if type(count) is not int or not 3 <= count <= 12:
+        raise ValueError('Choose 3-12 chapters.')
+    clean['chapter_count'] = count
     if not isinstance(data.get("sources"), list) or not 1 <= len(data["sources"]) <= 20:
         raise ValueError("Supply 1-20 actual research sources; no invented research.")
     for i, source in enumerate(data["sources"], 1):
@@ -53,6 +58,8 @@ def brief(data):
     total_context = sum(len(s["text"]) for s in clean["sources"]) + sum(len(c["audience_notes"]) for c in clean["creators"])
     if total_context > 16000:
         raise ValueError("Combined source text and creator notes exceed 16000 characters; split into focused projects.")
+    if len(json.dumps(clean, ensure_ascii=False)) > 22000:
+        raise ValueError('Total brief metadata and evidence exceed 22000 characters; shorten the brief.')
     return clean
 
 

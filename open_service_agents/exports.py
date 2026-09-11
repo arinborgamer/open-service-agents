@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def manuscript(job):
-    sections = ["transformation", "chapter_1", "chapter_2", "chapter_3"]
+    sections = ['transformation'] + [f'chapter_{i}' for i in range(1, job['brief'].get('chapter_count', 3) + 1)]
     chunks = ["# " + job["brief"]["topic"], "Status: editorial draft. Review accuracy and rights before publication."]
     if job["provider"] == "demo":
         chunks.insert(1, "DEMO FIXTURE - NOT FOR SALE")
