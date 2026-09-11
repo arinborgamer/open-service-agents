@@ -8,6 +8,8 @@ Job intake -> saved sequential AI stages -> draft exports. Approved outgoing mes
 
 The v0.2 dashboard and deployment/IMAP/Route instructions are in [V0.2.md](V0.2.md). Generation and mail now run as separate workers; `osa mail-worker` handles approved mail, configured inbox polling and explicitly approved Route transfers.
 
+For personal Outlook.com mailboxes, follow [OUTLOOK.md](OUTLOOK.md) instead of password-based SMTP/IMAP configuration. Microsoft OAuth support is optional and requires a public-client app registration and owner consent.
+
 1. Set a public alias/brand and a support mailbox you control. Keep required financial details private except where the provider or applicable transaction rules require disclosure. Do not reuse personal credentials in the repo.
 2. Create/verify a Razorpay account directly in its dashboard. India residency alone does not establish approval; payment product and international enablement depend on the account. Confirm the supported digital product, receiving bank and actual fees. [Payment Links](https://razorpay.com/docs/payments/payment-links/).
 3. Use test API keys first. Put `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` in `.local/runtime.env`. Use a dedicated webhook secret. Never send secrets into a GitHub issue or commit them.

@@ -117,15 +117,26 @@ def sync_inbox(store):
     if os.environ.get('OSA_IMAP_ENABLED') != 'true':
         return {'enabled': False, 'imported': 0}
     host, user, password = (os.environ.get(k) for k in ('OSA_IMAP_HOST', 'OSA_IMAP_USER', 'OSA_IMAP_PASSWORD'))
-    if not all((host, user, password)):
+    auth = os.environ.get('OSA_IMAP_AUTH', 'password')
+    if auth not in ('password', 'microsoft'):
+        raise ValueError('Unknown inbox authentication method.')
+    if not all((host, user)) or (auth == 'password' and not password):
         raise ValueError('IMAP configuration is incomplete.')
+    oauth = None
+    if auth == 'microsoft':
+        from . import microsoft_auth
+        microsoft_auth.validate_endpoint('imap', host, os.environ.get('OSA_IMAP_PORT', '993'), user)
+        oauth = microsoft_auth.xoauth2(user, microsoft_auth.access_token(user, microsoft_auth.IMAP_SCOPE)).encode('utf-8')
     mailbox = os.environ.get('OSA_IMAP_FOLDER', 'INBOX')
     if not re.fullmatch(r'[A-Za-z0-9_ ./-]{1,100}', mailbox):
         raise ValueError('Unsupported mailbox name.')
     account = hashlib.sha256((host + '\0' + user + '\0' + mailbox).encode()).hexdigest()
     imported = 0
     with imaplib.IMAP4_SSL(host, int(os.environ.get('OSA_IMAP_PORT', '993')), ssl_context=ssl.create_default_context(), timeout=30) as client:
-        client.login(user, password)
+        if oauth is not None:
+            client.authenticate('XOAUTH2', lambda challenge: oauth if not challenge else b'')
+        else:
+            client.login(user, password)
         status, _ = client.select('"' + mailbox + '"', readonly=True)
         if status != 'OK':
             raise ValueError('Cannot select mailbox read-only.')

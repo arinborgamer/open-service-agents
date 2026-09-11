@@ -59,7 +59,8 @@ def start_checkout(store, pid, customer, nonce):
     if page['demo']:
         raise ValueError('Demonstration products cannot be purchased.')
     if os.environ.get('OSA_PAYMENT_MODE','test') == 'live':
-        configured = all(os.environ.get(k) for k in ('OSA_SMTP_HOST','OSA_SMTP_USER','OSA_SMTP_PASSWORD','OSA_FROM_EMAIL'))
+        credentials = 'OSA_MICROSOFT_CLIENT_ID' if os.environ.get('OSA_MAIL_AUTH') == 'microsoft' else 'OSA_SMTP_PASSWORD'
+        configured = all(os.environ.get(k) for k in ('OSA_SMTP_HOST','OSA_SMTP_USER',credentials,'OSA_FROM_EMAIL'))
         if os.environ.get('OSA_MAIL_ENABLED') != 'true' or not configured or urlsplit(os.environ.get('OSA_PUBLIC_URL','')).scheme != 'https':
             raise ValueError('Live public checkout requires configured delivery email and a public HTTPS URL.')
     customer = email(customer)

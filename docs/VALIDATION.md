@@ -2,6 +2,13 @@
 
 Engineering-preview checks performed on 2026-09-11:
 
+## v0.2.1 Outlook checks
+
+- All 52 automated tests passed on Windows/Python 3.11, and installation of the optional Outlook dependencies succeeded.
+- Mocked regression coverage checks exact-account selection, separate inbox consent, restricted Microsoft endpoints, XOAUTH2 instead of password login, silent refresh failure before claiming mail, no-send SMTP verification, read-only IMAP and rejection of plaintext persistence.
+- On Windows, the installed Microsoft persistence library successfully encrypted and recovered a non-secret fixture; the raw cache did not contain the fixture text. This exercised DPAPI, not a real token or login.
+- No Microsoft client ID or token cache is configured locally. No actual mailbox authorization, message send or inbox access has been tested; owner app registration and sign-in remain required.
+
 ## v0.2 checks
 
 - Windows, Python 3.11: 41 automated tests passed, including repeated refunds and refunded-payment events cancelling or flagging partner transfers. JavaScript syntax and Python compilation checks passed.

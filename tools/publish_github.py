@@ -56,8 +56,10 @@ def main():
             print(json.dumps({"url": result["html_url"], "created": True}))
     elif args.action == "release":
         version = tomllib.loads((Path(__file__).resolve().parents[1] / 'pyproject.toml').read_text())['project']['version']
+        changelog = (Path(__file__).resolve().parents[1] / 'CHANGELOG.md').read_text(encoding='utf-8')
+        notes = changelog.split('## ' + version + '\n', 1)[1].split('\n## ', 1)[0].strip()
         result = api(f"/repos/{OWNER}/{REPO}/releases", {"tag_name": "v" + version, "target_commitish": "main", "name": "v" + version + " - engineering preview", "prerelease": True,
-            "body": "Adds a local operator dashboard, 3-12 chapter drafting, revision history, source/caption imports, Brave/YouTube discovery adapters, reviewed creator shortlist, A/B campaigns, correlated IMAP replies, an editable product-page builder, public checkout routes, aggregate analytics and explicitly approved Razorpay Route transfer submission. Includes regression tests and a TLS deployment template.\n\nNot a turnkey income system. Merchant approval, search/mail credentials, live provider verification, public hosting, transfer reconciliation and editorial review remain owner responsibilities. No customers contacted or earnings claimed. See docs/V0.2.md and docs/VALIDATION.md."})
+            "body": notes + "\n\nEngineering preview, not a turnkey income system. No earnings claimed. See README.md and docs/VALIDATION.md for setup and verification limits."})
         print(json.dumps({"release": result["html_url"]}))
     elif args.action == "status":
         result = api(f"/repos/{OWNER}/{REPO}/actions/runs?per_page=5")

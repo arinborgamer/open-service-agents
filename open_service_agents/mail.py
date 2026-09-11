@@ -44,10 +44,19 @@ def suppress(store, recipient, reason="opt-out"):
 def send_one(store):
     if os.environ.get("OSA_MAIL_ENABLED") != "true":
         return None
-    required = ("OSA_SMTP_HOST", "OSA_SMTP_USER", "OSA_SMTP_PASSWORD", "OSA_FROM_EMAIL")
+    auth = os.environ.get('OSA_MAIL_AUTH', 'password')
+    if auth not in ('password', 'microsoft'):
+        raise ValueError('Unknown mail authentication method.')
+    required = ("OSA_SMTP_HOST", "OSA_SMTP_USER", "OSA_FROM_EMAIL") + (() if auth == 'microsoft' else ('OSA_SMTP_PASSWORD',))
     if any(not os.environ.get(k) for k in required):
         raise ValueError("SMTP configuration is incomplete.")
     sender = email(os.environ["OSA_FROM_EMAIL"])
+    oauth = None
+    if auth == 'microsoft':
+        from . import microsoft_auth
+        microsoft_auth.validate_endpoint('smtp', os.environ['OSA_SMTP_HOST'], os.environ.get('OSA_SMTP_PORT', '587'), os.environ['OSA_SMTP_USER'])
+        # Missing/revoked authorization fails before claiming a message.
+        oauth = microsoft_auth.xoauth2(sender, microsoft_auth.access_token(sender, microsoft_auth.SMTP_SCOPE))
     with store.connect() as db:
         db.execute("BEGIN IMMEDIATE")
         count = db.execute("SELECT COUNT(*) FROM mail WHERE state IN ('sending','sent','uncertain') AND sent>?", (time.time() - 86400,)).fetchone()[0]
@@ -75,7 +84,10 @@ def send_one(store):
     try:
         with smtplib.SMTP(os.environ["OSA_SMTP_HOST"], int(os.environ.get("OSA_SMTP_PORT", "587")), timeout=30) as client:
             client.starttls(context=ssl.create_default_context())
-            client.login(os.environ["OSA_SMTP_USER"], os.environ["OSA_SMTP_PASSWORD"])
+            if oauth is not None:
+                client.auth('XOAUTH2', lambda challenge=None: oauth if challenge is None else '')
+            else:
+                client.login(os.environ["OSA_SMTP_USER"], os.environ["OSA_SMTP_PASSWORD"])
             client.send_message(message)
         state, error = "sent", None
     except Exception:

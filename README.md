@@ -6,6 +6,8 @@ Original, open-source agents for researching a digital product, creating a draft
 
 Start the service and open **http://127.0.0.1:8787/studio**. Unlock it using your private `OSA_API_TOKEN`. Read the [v0.2 workflow and setup guide](docs/V0.2.md) for the connected interface, account requirements and remaining limitations.
 
+Personal Outlook.com users: the optional [Microsoft OAuth connector](docs/OUTLOOK.md) uses browser sign-in and encrypted token storage, not a mailbox password. Registration and owner consent are required; installation does not enable sending.
+
 ## What it does
 
 | Workflow | Implemented behavior |

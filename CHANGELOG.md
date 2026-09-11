@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+Adds opt-in personal Outlook.com OAuth for SMTP and read-only IMAP, Microsoft browser/PKCE sign-in, encrypted out-of-repository token persistence, silent refresh, restricted Microsoft endpoints, and a no-send SMTP verification command. Adds setup documentation and mocked regression coverage. No Microsoft app or mailbox is connected automatically; live provider verification still requires owner registration and consent.
+
 ## 0.2.0
 
 Adds an authenticated browser dashboard; 3-12 chapter plans; editable drafts with revision history and approval locks; bounded robots-aware website and public-caption imports; Brave/YouTube creator discovery; a reviewed shortlist; A/B campaign drafts and metrics; a separate mailbox worker; read-only IMAP reply correlation and follow-up suppression; an editable/reorderable product-page builder; sample and confirmation pages; replay-safe public checkout; aggregate page/order counts; explicit approval of Route partner transfers; and Docker/Caddy deployment configuration. No external merchant, mailbox, search or hosting account is activated by installing this release. See docs/V0.2.md for boundaries.

@@ -24,6 +24,10 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("init", help="Create private local config and random keys.")
     sub.add_parser("doctor", help="Check configuration without showing secrets.")
+    outlook = sub.add_parser('outlook-connect', help='Owner-run Microsoft browser sign-in; does not send mail or enable workers.')
+    outlook.add_argument('--with-inbox', action='store_true', help='Also request mailbox access for correlated reply monitoring.')
+    sub.add_parser('outlook-status', help='Report configuration/cache presence, not token contents.')
+    sub.add_parser('outlook-verify', help='Verify Outlook SMTP authentication without sending an email.')
     submit = sub.add_parser("submit")
     submit.add_argument("brief")
     submit.add_argument("--provider", choices=("demo", "ollama"), default="ollama")
@@ -87,6 +91,16 @@ def main():
     try:
         if args.command == "init":
             output({"config": config.initialize(args.env_file), "secrets": "generated privately"})
+            return
+        if args.command in ('outlook-connect', 'outlook-status', 'outlook-verify'):
+            from . import microsoft_auth
+            if args.command == 'outlook-connect':
+                print('Sign in only on Microsoft\'s browser page. Review the requested permissions. No email will be sent.', flush=True)
+                output(microsoft_auth.connect(args.with_inbox))
+            elif args.command == 'outlook-verify':
+                output(microsoft_auth.verify())
+            else:
+                output(microsoft_auth.status())
             return
         if args.command == "doctor":
             output({"python": sys.version.split()[0], "model": os.environ.get("OSA_MODEL", "granite4:3b"),
