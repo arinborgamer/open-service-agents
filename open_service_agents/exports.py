@@ -1,5 +1,6 @@
 """Original portable outputs; public product bundles exclude creator records and private sources."""
 import html
+import importlib.util
 import io
 import json
 import re
@@ -41,7 +42,14 @@ def bundle(job):
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("product.md", content)
         archive.writestr("product.html", html_document(job["brief"]["topic"], content))
-        archive.writestr("README.txt", "Original editorial draft. This bundle contains a readable HTML edition and Markdown source.\n")
+        has_pdf = pdf_available()
+        if has_pdf:
+            archive.writestr('product.pdf', pdf_bytes(job))
+        archive.writestr('CONTENTS.json', json.dumps({'edition_id': job['id'], 'topic': job['brief']['topic'],
+            'chapters': job['brief'].get('chapter_count', 3), 'demo': job['provider'] == 'demo',
+            'formats': ['Markdown', 'HTML'] + (['PDF'] if has_pdf else [])}, indent=2))
+        archive.writestr("README.txt", "Original editorial draft. Includes a readable HTML edition and Markdown source.\n" +
+            ('PDF edition included.\n' if has_pdf else 'PDF was not included: the operator has not installed the optional PDF dependency.\n'))
     return out.getvalue()
 
 
@@ -70,7 +78,11 @@ def export_job(store, job_id, destination):
     return str(dest.resolve())
 
 
-def pdf_export(store, job_id, destination):
+def pdf_available():
+    return importlib.util.find_spec('reportlab') is not None
+
+
+def pdf_bytes(job):
     try:
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
         from reportlab.lib.styles import getSampleStyleSheet
@@ -78,11 +90,9 @@ def pdf_export(store, job_id, destination):
         from reportlab.lib.enums import TA_LEFT
     except ImportError as exc:
         raise ValueError("Install PDF support: pip install -e .[pdf]") from exc
-    job = store.job(job_id)
     if job["state"] != "ready":
         raise ValueError("Wait for the job to become ready.")
-    destination = Path(destination)
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination = io.BytesIO()
     styles = getSampleStyleSheet()
     for name in ("BodyText", "Normal"):
         styles[name].fontSize = 11
@@ -90,13 +100,17 @@ def pdf_export(store, job_id, destination):
         styles[name].alignment = TA_LEFT
     styles["Title"].textColor = colors.HexColor("#214c3b")
     styles["Heading2"].spaceBefore = 18
+    styles['Heading2'].keepWithNext = True
+    styles['Heading3'].keepWithNext = True
     flow = [Paragraph("OPEN SERVICE AGENTS / EDITORIAL DRAFT", styles["Heading3"]), Spacer(1, 40),
             Paragraph(html.escape(job["brief"]["topic"]), styles["Title"]), Spacer(1, 24),
             Paragraph(html.escape(job["brief"]["audience"]), styles["BodyText"]), Spacer(1, 36),
             Paragraph("Demonstration fixture - not for sale." if job["provider"] == "demo" else "Review accuracy, attribution, and reader outcomes before publication.", styles["BodyText"]), PageBreak()]
     for line in manuscript(job).splitlines():
         if not line.strip():
-            flow.append(Spacer(1, 7))
+            space = Spacer(1, 7)
+            space.keepWithNext = True
+            flow.append(space)
             continue
         value = line.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
         style = "BodyText"
@@ -112,6 +126,14 @@ def pdf_export(store, job_id, destination):
         canvas.setFillColor(colors.HexColor("#60736b"))
         canvas.drawString(48, 30, "Open Service Agents - draft edition")
         canvas.drawRightString(547, 30, str(doc.page))
-    SimpleDocTemplate(str(destination), pagesize=(595, 842), rightMargin=48, leftMargin=48,
+    SimpleDocTemplate(destination, pagesize=(595, 842), rightMargin=48, leftMargin=48,
                       topMargin=48, bottomMargin=52, title=job["brief"]["topic"], author="Open Service Agents").build(flow, onFirstPage=footer, onLaterPages=footer)
+    return destination.getvalue()
+
+
+def pdf_export(store, job_id, destination):
+    content = pdf_bytes(store.job(job_id))
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(content)
     return str(destination.resolve())

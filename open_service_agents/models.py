@@ -58,6 +58,9 @@ def brief(data):
     total_context = sum(len(s["text"]) for s in clean["sources"]) + sum(len(c["audience_notes"]) for c in clean["creators"])
     if total_context > 16000:
         raise ValueError("Combined source text and creator notes exceed 16000 characters; split into focused projects.")
+    if data.get('selected_outline') is not None:
+        clean['selected_outline'] = artifact(data['selected_outline'], {s['id'] for s in clean['sources']})
+        text(clean['selected_outline']['body'], 'selected outline', 6000)
     if len(json.dumps(clean, ensure_ascii=False)) > 22000:
         raise ValueError('Total brief metadata and evidence exceed 22000 characters; shorten the brief.')
     return clean

@@ -44,7 +44,15 @@ def run_one(store):
             context = {"brief": b, "previous": {k: {"title": v["title"], "body": v["body"][:6000 if k=='transformation' else 500]}
                 for k, v in completed.items() if k in ("opportunity", "creator", "transformation")},
                 'completed_section_titles': {k:v['title'] for k,v in completed.items() if k.startswith('chapter_')}}
-            response = artifact(model.generate(stage, instruction, context), {s["id"] for s in b["sources"]})
+            if stage in ('brand', 'storefront', 'outreach', 'launch'):
+                context['product_sections'] = {k: {'title': v['title'], 'excerpt': v['body'][:400], 'citations': v['citations']}
+                    for k, v in completed.items() if k.startswith('chapter_')}
+            if stage == 'transformation' and b.get('selected_outline'):
+                response = artifact(b['selected_outline'], {s['id'] for s in b['sources']})
+            else:
+                if b.get('selected_outline'):
+                    instruction += ' The operator has selected brief.selected_outline; honor that product direction and do not choose a different one.'
+                response = artifact(model.generate(stage, instruction, context), {s["id"] for s in b["sources"]})
             response.update({"provider": model.name, "model": model.model, "stage": stage})
             store.save_artifact(job, stage, response)
             completed[stage] = response

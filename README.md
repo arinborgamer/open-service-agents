@@ -2,9 +2,9 @@
 
 Original, open-source agents for researching a digital product, creating a draft, preparing creator partnerships, and fulfilling paid orders. Python 3.11+, SQLite, optional local Ollama. No Whop account required.
 
-**Status: v0.2 engineering preview.** Includes a working local dashboard, research and creator discovery, editable product drafts, campaign review and inbox sync, a product-page builder, checkout/delivery, analytics and explicitly approved partner-transfer submission. It is not a turnkey income system. Live payment, email, search and public hosting require your own accounts and verification. Model-written drafts require editorial review. Test/demo transactions are separated from actual receipts.
+**Status: v0.3 engineering preview.** Includes a local dashboard, research and creator discovery, three selectable AI outlines, editable product drafts, reviewable AI revisions, chapter/evidence diagnostics, original product-page templates, campaign review and inbox sync, checkout/delivery, analytics and explicitly approved partner-transfer submission. It is not a turnkey income system. Live payment, email, search and public hosting require your own accounts and verification. Model-written drafts require editorial review. Test/demo transactions are separated from actual receipts.
 
-Start the service and open **http://127.0.0.1:8787/studio**. Unlock it using your private `OSA_API_TOKEN`. Read the [v0.2 workflow and setup guide](docs/V0.2.md) for the connected interface, account requirements and remaining limitations.
+Start the service and open **http://127.0.0.1:8787/studio**. Unlock it using your private `OSA_API_TOKEN`. Read the [v0.3 product workflow](docs/V0.3.md) and [account/hosting setup guide](docs/V0.2.md).
 
 Personal Outlook.com users: the optional [Microsoft OAuth connector](docs/OUTLOOK.md) uses browser sign-in and encrypted token storage, not a mailbox password. Registration and owner consent are required; installation does not enable sending.
 
@@ -14,20 +14,21 @@ Personal Outlook.com users: the optional [Microsoft OAuth connector](docs/OUTLOO
 |---|---|
 | Opportunity agent | Suggests three evidence-linked product directions and a validation experiment |
 | Creator analyst | Analyzes supplied creator notes/content; produces sourcing criteria if none are supplied |
-| Product planner | Before/after outcome, outline, reader exercises |
-| Product writer | 3-12 checkpointed chapters; ebook/workbook or written course/coaching draft; revision history and approval locks |
+| Product planner | Three selectable outlines with before/after outcome and exercises; the selected plan is preserved during generation |
+| Product writer | 3-12 checkpointed chapters; reviewable AI revisions, manual editing, stale-edit protection and separate new editions of approved products |
+| Editorial review | Chapter counts/word counts, missing or duplicate chapters, placeholder checks and source-to-chapter map; not a fact-checking guarantee |
 | Brand agent | Original name, voice and visual direction |
 | Storefront copy agent | Offer copy, FAQs and pricing hypotheses |
 | Partnership agent | Two email variants per supplied creator, proposed partnership discussion |
 | Launch agent | Funnel brief, ten-story sequence, feedback and measurement plan |
 | Independent adviser | Answers a question using a supplied evidence brief; does not impersonate anyone |
 | Research discovery | Brave search, bounded robots-aware website imports and optional public English caption imports; evidence type and truncation labels |
-| Exports | Markdown, readable HTML, product ZIP, funnel graph/brief ZIP; optional PDF |
+| Exports | Markdown, readable HTML, product ZIP with edition manifest, funnel graph/brief ZIP; PDF download and inclusion in buyer ZIP when PDF support is installed |
 | Automation | Persistent worker, bounded retries, per-stage checkpoints, authenticated local API |
 | Outreach | Qualified creator shortlist, A/B draft campaigns, per-message review, SMTP scheduling, read-only correlated IMAP replies and directional metrics |
 | Payments | Razorpay Payment Links, raw-body HMAC verification, amount/currency matching, deduplication |
 | Delivery/accounting | Signed downloads; automatic live delivery email queue; refund/dispute revocation; gross shares and separately approved Route transfer submission |
-| Store builder | Edit/reorder sections; preview and publish offer/sample/confirmation pages; public checkout; aggregate page/order counts |
+| Store builder | Three original templates populated from actual product content; edit/reorder sections; preview and publish offer/sample/confirmation pages; public checkout; aggregate page/order counts |
 
 ## Quick start: no account or API key needed
 
@@ -78,7 +79,7 @@ python -m pip install -e .[pdf]
 osa pdf JOB_ID --out .local/output/pdf/my-product.pdf
 ```
 
-Operator exports include all generated drafts and the legacy `funnel-brief.zip` planning bundle. Customer ZIPs contain the product's Markdown/HTML editions and references, excluding original brief records and outreach drafts. Optional PDF remains a separate operator export. The v0.2 dashboard additionally builds working server-backed offer/sample/confirmation pages and exports static page previews. Three to twelve chapters are supported; no particular page count or editorial quality is guaranteed.
+Operator exports include all generated drafts and the legacy `funnel-brief.zip` planning bundle. Customer ZIPs contain the product's Markdown/HTML editions, references, edition manifest, and a PDF when the optional PDF dependency is installed. Raw source notes, creator contacts and outreach drafts are excluded. The dashboard also provides a direct PDF download, three original page templates, working server-backed offer/sample/confirmation pages and static page-preview exports. Three to twelve chapters are supported; no particular page count or editorial quality is guaranteed.
 
 ## Checkout and automated delivery without Whop
 
@@ -133,7 +134,7 @@ The development container port binds to loopback. A separate `compose.production
 
 Maintainer identity: `arinborgamer`. Commits use GitHub's noreply address. Secrets, downloaded captions, logs, data, generated drafts and customer records are ignored. Payment KYC still uses the owner's real details privately, and a processor may expose verified business details on checkout/receipts. See [privacy boundaries](docs/PRIVACY.md).
 
-This project is an independent implementation informed by publicly narrated workflows in four videos. It contains no proprietary code, private prompts, branding, paid lead lists, swipe files, coaching service or training data from Monetize/Synthesize/ListKit/Whop. It is not affiliated with those products or presenters. [Study of videos 1–2](docs/research/videos-1-2.md), [study of videos 3–4](docs/research/videos-3-4.md), [feature mapping](docs/FEATURES.md).
+This project is an independent implementation informed by publicly narrated workflows in four videos. It contains no proprietary code, private prompts, branding, paid lead lists, swipe files, coaching service or training data from Monetize/Synthesize/ListKit/Whop. It is not affiliated with those products or presenters. [Study of videos 1–2](docs/research/videos-1-2.md), [study of videos 3–4](docs/research/videos-3-4.md), [feature mapping](docs/FEATURES.md), [current public-suite comparison](docs/research/suite-upgrade.md).
 
 ## Development
 

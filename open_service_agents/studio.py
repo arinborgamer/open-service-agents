@@ -3,8 +3,9 @@ import json
 import os
 import time
 import uuid
-from . import campaigns, discovery, mail, models, payments, storefront, transfers
+from . import campaigns, creative, discovery, mail, models, payments, quality, storefront, transfers
 from .providers import provider, search
+from .exports import pdf_available
 
 
 def rows(store, sql, args=()):
@@ -13,12 +14,18 @@ def rows(store, sql, args=()):
 
 
 def get(store, path):
+    if path == '/v1/templates':
+        return list(storefront.TEMPLATES)
+    if path == '/v1/creative':
+        return creative.list_tasks(store)
+    if path.startswith('/v1/quality/'):
+        return quality.report(store.job(path[len('/v1/quality/'):]))
     if path == '/v1/overview':
         return {'jobs': store.jobs(), 'ledger': payments.ledger(store), 'configuration': {
             'model': os.environ.get('OSA_MODEL','granite4:3b'), 'payment_mode': os.environ.get('OSA_PAYMENT_MODE','test'),
             'payments': bool(os.environ.get('RAZORPAY_KEY_ID')), 'mail': os.environ.get('OSA_MAIL_ENABLED') == 'true',
             'inbox': os.environ.get('OSA_IMAP_ENABLED') == 'true', 'search': bool(os.environ.get('BRAVE_API_KEY')),
-            'youtube': bool(os.environ.get('OSA_YOUTUBE_API_KEY'))}}
+            'youtube': bool(os.environ.get('OSA_YOUTUBE_API_KEY')), 'pdf': pdf_available()}}
     if path == '/v1/leads':
         return [{'id': r['id'], **json.loads(r['content'])} for r in rows(store, 'SELECT * FROM leads ORDER BY updated DESC LIMIT 300')]
     if path == '/v1/research':
@@ -47,6 +54,20 @@ def get(store, path):
 
 
 def post(store, path, data):
+    if path == '/v1/storefronts/template':
+        return storefront.template(store, data['product_id'], data['template_id'])
+    if path == '/v1/creative/outlines':
+        return creative.enqueue(store, 'outlines', data)
+    if path == '/v1/creative/revision':
+        return creative.enqueue(store, 'revision', data)
+    if path == '/v1/creative/select':
+        return creative.select_outline(store, data['id'], data['variant'])
+    if path == '/v1/creative/apply':
+        return creative.apply_revision(store, data['id'])
+    if path == '/v1/creative/retry':
+        return creative.retry(store, data['id'])
+    if path == '/v1/jobs/fork':
+        return {'id': store.fork_draft(data['id'])}
     if path == '/v1/transfers/plan':
         return transfers.plan(store, data['order_id'], data['account'])
     if path == '/v1/transfers/approve':

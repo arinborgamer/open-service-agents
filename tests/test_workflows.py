@@ -15,7 +15,7 @@ from unittest.mock import patch
 from open_service_agents import models, payments, mail
 from open_service_agents.storage import Store
 from open_service_agents.pipeline import run_one, STAGES
-from open_service_agents.exports import bundle, export_job
+from open_service_agents.exports import bundle, export_job, pdf_available
 from open_service_agents.server import make_server
 from open_service_agents.providers import Ollama
 
@@ -63,7 +63,7 @@ class Workflows(unittest.TestCase):
         self.assertEqual(job["state"], "ready")
         self.assertEqual(set(job["artifacts"]), set(STAGES))
         z = zipfile.ZipFile(io.BytesIO(bundle(job)))
-        self.assertEqual(set(z.namelist()), {"product.md", "product.html", "README.txt"})
+        self.assertEqual(set(z.namelist()), {"product.md", "product.html", "README.txt", "CONTENTS.json"} | ({'product.pdf'} if pdf_available() else set()))
         self.assertIn(b"DEMO FIXTURE", z.read("product.md"))
         self.assertNotIn(b"audience_notes", z.read("product.md"))
         export_job(self.store, jid, Path(self.tmp.name) / "exports")

@@ -3,7 +3,9 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from open_service_agents import models, payments, storefront, discovery
+import threading
+import time
+from open_service_agents import creative, models, payments, storefront, discovery
 from open_service_agents.storage import Store
 from open_service_agents.pipeline import run_one
 from open_service_agents.server import make_server
@@ -34,5 +36,12 @@ with tempfile.TemporaryDirectory(prefix='osa-ui-qa-') as folder:
     discovery.save_lead(store, {'name':'Example Educational Creator','profile_url':'https://example.com/creator',
         'niche':'Publishing workflows','audience_notes':'Fictional UI fixture. No actual creator or audience.',
         'email':'creator@example.com','contact_basis':'Synthetic test recipient; never send.','status':'qualified'})
+    store.fork_draft(jid)
+    def worker():
+        while True:
+            if not creative.run_one(store):
+                run_one(store)
+            time.sleep(.3)
+    threading.Thread(target=worker, daemon=True).start()
     print('Isolated UI QA: http://127.0.0.1:8788/studio',flush=True)
     make_server(store,port=8788).serve_forever()

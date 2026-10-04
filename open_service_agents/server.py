@@ -8,7 +8,7 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
 from . import models, payments, studio, storefront
-from .exports import bundle
+from .exports import bundle, pdf_bytes
 from . import __version__
 
 
@@ -39,6 +39,8 @@ def make_server(store, host="127.0.0.1", port=8787):
             self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
             if content_type == "application/zip":
                 self.send_header("Content-Disposition", 'attachment; filename="product.zip"')
+            if content_type == 'application/pdf':
+                self.send_header('Content-Disposition', 'attachment; filename="product.pdf"')
             self.end_headers()
             self.wfile.write(raw)
 
@@ -69,7 +71,8 @@ def make_server(store, host="127.0.0.1", port=8787):
             try:
                 path = urlsplit(self.path).path
                 assets = {"/": ("index.html", "text/html; charset=utf-8"), "/studio": ("index.html", "text/html; charset=utf-8"),
-                          "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
+                          "/app.js": ("app.js", "text/javascript"), "/creative.js": ("creative.js", "text/javascript"),
+                          "/creative.css": ("creative.css", "text/css"), "/style.css": ("style.css", "text/css")}
                 if path in assets:
                     name, mime = assets[path]
                     return self.reply(200, (Path(__file__).parent / "web" / name).read_bytes(), mime)
@@ -83,6 +86,8 @@ def make_server(store, host="127.0.0.1", port=8787):
                         return self.reply(404, {'error':'Page not found'})
                     return self.reply(200, storefront.render(store, parts[1], parts[2] if len(parts) == 3 else 'offer'), 'text/html; charset=utf-8')
                 self.authorized()
+                if path.startswith('/v1/pdf/'):
+                    return self.reply(200, pdf_bytes(store.job(path[len('/v1/pdf/'):])) , 'application/pdf')
                 if path.startswith('/v1/export/'):
                     return self.reply(200, bundle(store.job(path[11:])), 'application/zip')
                 if path.startswith('/v1/funnel-export/'):

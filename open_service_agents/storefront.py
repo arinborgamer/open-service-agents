@@ -10,6 +10,42 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from . import payments
 from .models import identifier, text, email
+from .exports import pdf_available
+
+
+TEMPLATES = (
+    {'id': 'field-guide', 'name': 'Practical guide', 'description': 'Lead with the reader problem, contents and a sample.'},
+    {'id': 'workbook', 'name': 'Hands-on workbook', 'description': 'Lead with exercises, outcomes and a repeatable review process.'},
+    {'id': 'curriculum', 'name': 'Written curriculum', 'description': 'Present modules and prerequisites; no claim that videos or coaching exist.'},
+)
+
+
+def template(store, pid, template_id):
+    """Return editable copy from the actual edition. Never save or publish implicitly."""
+    if template_id not in {t['id'] for t in TEMPLATES}:
+        raise ValueError('Unknown page template.')
+    with store.connect() as db:
+        product = db.execute('SELECT job_id FROM products WHERE id=? AND approved=1', (pid,)).fetchone()
+    if not product:
+        raise ValueError('Choose an approved product.')
+    job = store.job(product['job_id'])
+    brief, artifacts = job['brief'], job['artifacts']
+    chapters = [artifacts[f'chapter_{i}'] for i in range(1, brief.get('chapter_count', 3) + 1)]
+    contents = '\n'.join(f'{i}. {chapter["title"]}' for i, chapter in enumerate(chapters, 1))
+    blocks = [
+        {'heading': 'Who this is for', 'body': brief['audience'] + '\n\nThe problem: ' + brief['problem']},
+        {'heading': 'Inside the product', 'body': contents},
+        {'heading': 'Your starting point and outcome', 'body': artifacts['transformation']['body'][:5000]},
+        {'heading': 'How to use it', 'body': 'Read one section, try its exercise and compare the result with the supplied references. Adapt it to your situation. This is a written digital resource; live coaching, recorded videos and guaranteed results are not included.'},
+    ]
+    if template_id == 'workbook':
+        blocks = [blocks[2], blocks[1], blocks[3], blocks[0]]
+    elif template_id == 'curriculum':
+        blocks[1]['heading'] = 'Your learning modules'
+        blocks = [blocks[0], blocks[1], blocks[3], blocks[2]]
+    return {'product_id': pid, 'template_id': template_id, 'headline': brief['topic'][:200],
+            'description': artifacts['storefront']['body'][:2000], 'sample': chapters[0]['body'][:10000],
+            'blocks': blocks, 'published': False}
 
 
 def configure(store, data):
@@ -30,6 +66,10 @@ def configure(store, data):
               'terms': text(data.get('terms'), 'sale terms', 4000),
               'blocks': [{'heading': text(b.get('heading'), 'section heading', 150),
                           'body': text(b.get('body'), 'section body', 5000)} for b in blocks]}
+    template_id = data.get('template_id', 'field-guide')
+    if template_id not in {t['id'] for t in TEMPLATES}:
+        raise ValueError('Unknown page template.')
+    config['template_id'] = template_id
     published = data.get('published') is True
     if published and data.get('reviewed') is not True:
         raise ValueError('Confirm editorial, rights and merchant-detail review before publishing.')
@@ -114,7 +154,8 @@ def render(store, pid, step='offer', preview=False):
         content = '<section class="store-hero"><span class="eyebrow">' + esc(config['seller_name']) + '</span><h1>' + esc(config['headline']) + '</h1><p>' + esc(config['description']) + '</p><a href="' + root + '/sample">Read a free sample</a></section>'
         for block in config['blocks']:
             content += '<section class="store-section"><h2>' + esc(block['heading']) + '</h2><div class="prose">' + esc(block['body']) + '</div></section>'
-        content += '<section class="panel"><h2>Get the digital product</h2><p class="store-price">' + esc(page['currency']) + ' ' + f"{page['amount']/100:.2f}" + '</p><p>Delivered as a downloadable ZIP with HTML and Markdown editions.</p>'
+        formats = 'PDF, HTML and Markdown' if pdf_available() else 'HTML and Markdown'
+        content += '<section class="panel"><h2>Get the digital product</h2><p class="store-price">' + esc(page['currency']) + ' ' + f"{page['amount']/100:.2f}" + '</p><p>Delivered as a downloadable ZIP with ' + formats + ' editions.</p>'
         mode = os.environ.get('OSA_PAYMENT_MODE', 'test')
         enabled = mode in ('test', 'live') and bool(os.environ.get('RAZORPAY_KEY_ID') and os.environ.get('RAZORPAY_KEY_SECRET'))
         if page['demo'] or preview or not enabled:

@@ -53,6 +53,16 @@ class Demo:
 
     def generate(self, stage, instruction, context):
         b = context["brief"]
+        if stage.startswith('outline_'):
+            approach = context['approach']
+            body = f"DEMO FIXTURE - NOT AI GENERATED\n\nBefore: {b['problem']}\n\nAfter: a usable {b['format']} about {b['topic']}.\n\nApproach: {approach}\n\n"
+            for i in range(1, b.get('chapter_count', 3) + 1):
+                body += f"{i}. {approach}: step {i}\nExercise: complete one original worksheet for step {i}.\nAcceptance: explain the result and check it against the supplied evidence.\n\n"
+            return {'title': approach, 'body': body, 'citations': [b['sources'][0]['id']]}
+        if stage == 'revision':
+            return {'title': 'Revised ' + context['original']['title'],
+                    'body': 'DEMO REVISION - NOT AI GENERATED\n\n' + context['original']['body'] + '\n\nReview exercise: write one concrete next action and its acceptance check.',
+                    'citations': context['original']['citations']}
         bodies = {
             "opportunity": f"Audience: {b['audience']}. Problem: {b['problem']}.\n\n"
                 "Candidate A: a short practical guide. Candidate B: a repeatable checklist. Candidate C: a workshop outline. "

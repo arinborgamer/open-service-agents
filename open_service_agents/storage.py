@@ -50,13 +50,17 @@ class Store:
                 CREATE TABLE IF NOT EXISTS checkout_requests(nonce TEXT PRIMARY KEY,product_id TEXT NOT NULL,email TEXT NOT NULL,order_id TEXT,state TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS advisor(id TEXT PRIMARY KEY,job_id TEXT NOT NULL,question TEXT NOT NULL,answer TEXT NOT NULL,created REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS edits(id TEXT PRIMARY KEY,job_id TEXT NOT NULL,stage TEXT NOT NULL,previous TEXT NOT NULL,created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS creative_tasks(
+                    id TEXT PRIMARY KEY,kind TEXT NOT NULL,payload TEXT NOT NULL,provider TEXT NOT NULL,
+                    state TEXT NOT NULL DEFAULT 'queued',result TEXT NOT NULL DEFAULT '{}',attempts INTEGER NOT NULL DEFAULT 0,
+                    available REAL NOT NULL,lease_until REAL,lease_token TEXT,error TEXT,created REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS transfers(id TEXT PRIMARY KEY,payment_id TEXT UNIQUE NOT NULL,account TEXT NOT NULL,amount INTEGER NOT NULL,currency TEXT NOT NULL,mode TEXT NOT NULL,state TEXT NOT NULL,provider_id TEXT,created REAL NOT NULL,error TEXT);
                 CREATE INDEX IF NOT EXISTS idx_mail_state_due ON mail(state,due);
                 CREATE INDEX IF NOT EXISTS idx_orders_product_state ON orders(product_id,state);
                 CREATE INDEX IF NOT EXISTS idx_replies_mail_id ON replies(mail_id);
             ''')
 
-    def edit_artifact(self, job_id, stage, content):
+    def edit_artifact(self, job_id, stage, content, expected=None):
         from .models import artifact
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -66,11 +70,28 @@ class Store:
                 raise ValueError('Only a completed draft stage can be edited.')
             if db.execute('SELECT 1 FROM products WHERE job_id=?', (job_id,)).fetchone():
                 raise ValueError('An approved product is immutable. Create a revised product before editing.')
+            if expected is not None and json.loads(old['content']) != expected:
+                raise ValueError('This section changed since the revision was requested. Create a new suggestion.')
             clean = artifact(content, {s['id'] for s in json.loads(job['brief'])['sources']})
             clean['edited_by'] = 'operator'
             db.execute('INSERT INTO edits VALUES(?,?,?,?,?)', (uuid.uuid4().hex, job_id, stage, old['content'], time.time()))
             db.execute('UPDATE artifacts SET content=? WHERE job_id=? AND stage=?', (json.dumps(clean), job_id, stage))
         return clean
+
+    def fork_draft(self, job_id):
+        """Copy a completed edition; existing buyers keep their approved edition."""
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            old = db.execute('SELECT * FROM jobs WHERE id=?', (job_id,)).fetchone()
+            if not old or old['state'] != 'ready':
+                raise ValueError('Only a completed product can be copied into a new edition.')
+            new_id = uuid.uuid4().hex
+            brief = json.loads(old['brief'])
+            brief['id'] = 'edition-' + new_id
+            db.execute("INSERT INTO jobs(id,request_key,brief,provider,state,available,created) VALUES(?,?,?,?,'ready',?,?)",
+                       (new_id, new_id, json.dumps(brief, sort_keys=True), old['provider'], time.time(), time.time()))
+            db.execute('INSERT INTO artifacts SELECT ?,stage,content FROM artifacts WHERE job_id=?', (new_id, job_id))
+        return new_id
 
     @contextmanager
     def connect(self):

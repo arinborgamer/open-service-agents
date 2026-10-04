@@ -5,10 +5,54 @@ function notice(text, error=false){$('#notice').textContent=text;$('#notice').cl
 async function api(path, data){const response=await fetch(path,{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result;}
 function safe(fn){return async event=>{event?.preventDefault();const control=event?.currentTarget?.matches('button')?event.currentTarget:event?.currentTarget?.querySelector('button[type=submit],button:not([type])');if(control)control.disabled=true;try{await fn(event);}catch(error){notice(error.message,true);}finally{if(control)control.disabled=false;}};}
 async function refresh(){const overview=await api('/v1/overview');const jobs=overview.jobs;$('#jobs').replaceChildren();$('#job-count').textContent=jobs.length+' jobs';if(!jobs.length)$('#jobs').append(el('p','No drafts yet. Start with a specific reader problem and evidence you can use.','empty'));for(const job of jobs){const button=el('button',undefined,'job '+job.state);button.append(el('small',job.id),el('strong',job.state+' · '+job.provider),el('span',job.error||'Open draft and saved stages'));button.addEventListener('click',safe(()=>showJob(job.id)));$('#jobs').append(button);}$('#runtime').textContent='Model: '+overview.configuration.model+' · Mail '+(overview.configuration.mail?'enabled':'off')+' · Inbox '+(overview.configuration.inbox?'enabled':'off')+' · Payments '+overview.configuration.payment_mode;populateSelect($('#advisor-job'),jobs.filter(j=>j.state==='ready').map(j=>[j.id,j.id.slice(0,8)+' · '+j.provider]));await Promise.all([loadResearch(),loadLeads(),loadCampaigns(),loadStore(),loadAdviser()]);}
-async function showJob(id){selectedJob=await api('/v1/jobs/'+id);const area=$('#job-detail');area.hidden=false;area.replaceChildren(el('h2',selectedJob.brief.topic),el('p',selectedJob.brief.audience));const actions=el('div',undefined,'actions');if(selectedJob.state==='ready'){actions.append(action('Download product',()=>download('/v1/export/'+id,'product.zip')),action('Approve product & price',()=>approveProduct(id)));}if(selectedJob.state==='failed')actions.append(action('Retry saved job',async()=>{await api('/v1/jobs/retry',{id});notice('Job queued from saved stages.');await refresh();}));area.append(actions);const rail=el('div',undefined,'steps');for(const name of Object.keys(selectedJob.artifacts))rail.append(el('span',name.replaceAll('_',' '),'done'));area.append(rail);for(const [name,a] of Object.entries(selectedJob.artifacts)){const details=el('details');details.append(el('summary',name.replaceAll('_',' ')+' · '+a.title),el('pre',a.body),el('small','Sources: '+a.citations.join(', ')));if(selectedJob.state==='ready')details.append(action('Edit this draft',()=>editArtifact(id,name,a)));area.append(details);} }
+async function showJob(id){
+  selectedJob=await api('/v1/jobs/'+id);
+  const job=selectedJob, area=$('#job-detail');
+  const products=await api('/v1/products');
+  const locked=products.some(p=>p.job_id===id);
+  area.hidden=false;
+  area.replaceChildren(el('h2',job.brief.topic),el('p',job.brief.audience));
+  const actions=el('div',undefined,'actions');
+  if(job.state==='ready'){
+    actions.append(action('Download product',()=>download('/v1/export/'+id,'product.zip')),
+      action('Download PDF',()=>download('/v1/pdf/'+id,'product.pdf')),
+      action('Review quality & sources',()=>showQuality(id)),
+      action('Create a new edition',async()=>{
+        const copy=await api('/v1/jobs/fork',{id});await refresh();await showJob(copy.id);
+        notice('Editable edition created. Existing approved products retain their original content.');
+      }));
+    if(!locked)actions.append(action('Approve product & price',()=>approveProduct(id)));
+    if(locked)area.append(el('p','Approved edition · create a new edition to revise its content.','tag'));
+  }
+  if(job.state==='failed')actions.append(action('Retry saved job',async()=>{await api('/v1/jobs/retry',{id});notice('Job queued from saved stages.');await refresh();}));
+  area.append(actions);
+  const rail=el('div',undefined,'steps');
+  for(const name of Object.keys(job.artifacts))rail.append(el('span',name.replaceAll('_',' '),'done'));
+  area.append(rail);
+  for(const [name,a] of Object.entries(job.artifacts)){
+    const details=el('details');
+    details.append(el('summary',name.replaceAll('_',' ')+' · '+a.title),el('pre',a.body),el('small','Sources: '+a.citations.join(', ')));
+    if(job.state==='ready'&&!locked){
+      const controls=el('div',undefined,'actions');
+      controls.append(action('Edit this draft',()=>editArtifact(id,name,a)),action('Ask AI to revise',()=>requestRevision(job,name)));
+      details.append(controls);
+    }
+    area.append(details);
+  }
+}
 $('#login').addEventListener('submit',safe(async()=>{token=$('#token').value;await refresh();$('#token').value='';$('#connection').hidden=true;$('#workspace').hidden=false;notice('Workspace unlocked.');}));
 $('#refresh').addEventListener('click',safe(refresh));
-$('#brief-form').addEventListener('submit',safe(async e=>{const f=new FormData(e.target);const brief={id:'product-'+Date.now(),topic:f.get('topic'),audience:f.get('audience'),problem:f.get('problem'),format:f.get('format'),chapter_count:Number(f.get('chapter_count')),sources:[{title:f.get('source_title'),url:f.get('source_url'),text:f.get('source_text'),rights:f.get('rights')},...extraSources],creators:includedLeads};const result=await api('/v1/jobs',{brief,provider:f.get('provider')});notice('Draft queued. The worker saves progress after each stage.');await refresh();await showJob(result.id);}));
+$('#brief-form').addEventListener('submit',safe(async e=>{
+  const f=new FormData(e.target);
+  const brief={id:'product-'+Date.now(),topic:f.get('topic'),audience:f.get('audience'),problem:f.get('problem'),format:f.get('format'),chapter_count:Number(f.get('chapter_count')),sources:[{title:f.get('source_title'),url:f.get('source_url'),text:f.get('source_text'),rights:f.get('rights')},...extraSources],creators:includedLeads};
+  if(f.get('workflow')==='outlines'){
+    await api('/v1/creative/outlines',{brief,provider:f.get('provider')});
+    await loadCreative();view('creative');notice('Three outlines queued. Choose one before generating the product.');
+  }else{
+    const result=await api('/v1/jobs',{brief,provider:f.get('provider')});
+    notice('Draft queued. The worker saves progress after each stage.');await refresh();await showJob(result.id);
+  }
+}));
 
 // All untrusted text is rendered with textContent or form values, never as HTML.
 function action(label,fn,cls='secondary'){const b=el('button',label,cls);b.type='button';b.addEventListener('click',safe(fn));return b;}

@@ -1,5 +1,13 @@
 # Validation record
 
+## v0.3 checks (2026-10-04)
+
+- Windows/Python 3.11: 65 automated tests passed with optional PDF support installed. New coverage exercises outline selection/idempotency, saved progress after model failure, competing/stale worker leases, retry limits, revision preview/apply, intervening manual edits, approval races, separate immutable editions, provider/citation validation, structural findings, templates and package manifests. Compilation and both dashboard scripts passed syntax checks.
+- A headless Edge browser completed an isolated fixture workflow: unlock, generate and compare three outlines, build the selected plan, open the evidence report, request/compare/apply a revision, preview/insert a product-page template, and download PDF. Checked new private routes reject unauthenticated requests and no browser JavaScript errors occurred. Desktop and 390px mobile screenshots were inspected; the mobile document had no horizontal overflow.
+- A real `granite4:3b` run completed all three outline alternatives with validated supplied-source citations (980, 2,983 and 2,437 body characters). This checks actual local generation, not the usefulness or accuracy of every proposed outline. Full v0.3 manuscript and revision workflows were fixture-tested; their commercial quality is not established.
+- The downloaded four-page PDF was rendered and all pages inspected. Heading/paragraph pagination was corrected and the final PDF re-rendered. The 0.3.0 wheel built successfully and contains all five dashboard assets, with no private runtime files or test tools.
+- All buyer-package tests use fictional data; no customer mail, payment, partner transfer or public publication was performed. Optional PDF testing in CI is additional to the dependency-free baseline.
+
 Engineering-preview checks performed on 2026-09-11:
 
 ## v0.2.1 Outlook checks

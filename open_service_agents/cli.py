@@ -6,7 +6,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from . import config, models, payments, mail
+from . import config, models, payments, mail, creative
 from .exports import export_job, pdf_export
 from .pipeline import run_one
 from .providers import provider, search
@@ -115,10 +115,11 @@ def main():
         elif args.command == "worker":
             while True:
                 try:
-                    jid = run_one(store)
+                    task_id = creative.run_one(store)
+                    jid = run_one(store) if not task_id else None
                     sent = None  # Independent mail-worker keeps replies responsive during long model jobs.
-                    if jid or sent or args.once:
-                        output({"completed_job": jid, "mail": sent})
+                    if jid or task_id or sent or args.once:
+                        output({"completed_job": jid, "creative_task": task_id, "mail": sent})
                 except Exception as exc:
                     output({"error": type(exc).__name__, "detail": "Check job state and provider configuration; no fixture substitution."})
                     if args.once:
